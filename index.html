@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="First-person 3D walkabout of KNIT Sultanpur: the CSA and Academic blocks, Alumni Park, Administrative Block and campus roads.">
+<title>KNIT CSA Walkabout</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-bleed first-person view; HUD chips pinned to corners; minimap bottom-right; touch pads bottom on phones.
+   Single deliberate look: dark glass HUD over the 3D world, canopy-red accent. */
+:root {
+  --hud: rgba(18, 16, 15, 0.72);
+  --hud-strong: rgba(18, 16, 15, 0.88);
+  --ink: #f6efe8;
+  --muted: #c3b8ae;
+  --line: rgba(246, 239, 232, 0.16);
+  --accent: #e0362c;
+  --plaster: #cf8a83;
+  --cream: #efdc98;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: #20262b; color: var(--ink); font-family: var(--font-body); overflow: hidden; user-select: none; -webkit-user-select: none; }
+#view { position: fixed; inset: 0; }
+#view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.chip { background: var(--hud); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 10px; }
+.title {
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+  padding: 10px 14px; display: grid; gap: 2px; max-width: calc(100vw - 32px);
+}
+.title b { font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -0.01em; }
+.title span { font-size: 12px; color: var(--muted); }
+.title .here { font-family: var(--font-mono); font-size: 11px; color: var(--cream); letter-spacing: 0.04em; text-transform: uppercase; }
+
+.places {
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: min(520px, calc(100vw - 32px));
+}
+.places button, .toggles button {
+  font: 600 12.5px var(--font-body); color: var(--ink); background: var(--hud); border: 1px solid var(--line);
+  border-radius: 999px; padding: 7px 12px; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.places button:hover, .toggles button:hover { border-color: var(--muted); }
+.places button:focus-visible, .toggles button:focus-visible, #start button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.places kbd { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-right: 5px; }
+.toggles { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; }
+.toggles button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+#map { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: 230px; height: 130px; padding: 0; overflow: hidden; }
+#map canvas { width: 100%; height: 100%; display: block; }
+
+.cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,0.8); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; }
+
+#start {
+  position: fixed; inset: 0; display: grid; place-items: center; background: rgba(12, 11, 10, 0.55);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+#start .card { background: var(--hud-strong); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; max-width: 440px; display: grid; gap: 12px; }
+#start h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1.05; text-wrap: balance; }
+#start h1 em { font-style: normal; color: var(--plaster); }
+#start p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+#start .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; color: var(--ink); }
+#start .keys kbd { font-family: var(--font-mono); font-size: 11.5px; background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; justify-self: start; }
+#start button.go { font: 700 15px var(--font-body); color: #fff; background: var(--accent); border: 0; border-radius: 10px; padding: 12px 16px; cursor: pointer; }
+#start button.go:disabled { opacity: 0.55; cursor: progress; }
+#bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+#bar i { display: block; height: 100%; width: 0%; background: var(--cream); transition: width 0.2s; }
+[hidden] { display: none !important; }
+.touch-only, #start .keys.touch-only { display: none; }
+
+/* touch controls */
+#stick { position: fixed; left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(70px + env(safe-area-inset-bottom, 0px)); width: 120px; height: 120px; border-radius: 50%; background: var(--hud); border: 1px solid var(--line); touch-action: none; }
+#stick i { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(246,239,232,0.85); }
+#jump { position: fixed; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(170px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; border-radius: 50%; font: 700 12px var(--font-body); color: var(--ink); background: var(--hud); border: 1px solid var(--line); touch-action: none; }
+@media (pointer: coarse) {
+  .touch-only { display: block; }
+  #start .keys.touch-only { display: grid; }
+  .desk-only, #start .keys.desk-only { display: none; }
+  #map { width: 150px; height: 90px; bottom: calc(250px + env(safe-area-inset-bottom, 0px)); }
+  .toggles { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 640px) {
+  .places { top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); justify-content: center; max-width: none; }
+  .places kbd { display: none; }
+  .title span { display: none; }
+  #stick { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+
+<style>html,body{margin:0}</style>
+</head>
+<body>
+<div id="view"></div>
+<div class="cross" aria-hidden="true"></div>
+
+<div class="title chip">
+  <span class="here" id="here">Loading campus…</span>
+  <b>KNIT CSA Walkabout</b>
+  <span class="desk-only">Esc frees the mouse, click to look again</span>
+</div>
+
+<nav class="places" aria-label="Jump to a place">
+  <button type="button" data-place="road"><kbd>1</kbd>Main road</button>
+  <button type="button" data-place="gate"><kbd>2</kbd>CSA gate</button>
+  <button type="button" data-place="colonnade"><kbd>3</kbd>Colonnade</button>
+  <button type="button" data-place="gap"><kbd>4</kbd>The gap</button>
+  <button type="button" data-place="bank"><kbd>5</kbd>Bank of Baroda</button>
+  <button type="button" data-place="roof"><kbd>6</kbd>CSA rooftop</button>
+  <button type="button" data-place="cross"><kbd>7</kbd>Crossroads</button>
+  <button type="button" data-place="park"><kbd>8</kbd>Alumni Park</button>
+  <button type="button" data-place="admin"><kbd>9</kbd>Admin Block</button>
+</nav>
+
+<div class="toggles">
+  <button type="button" id="btn-night" aria-pressed="false">Night</button>
+  <button type="button" id="btn-map" aria-pressed="true">Map</button>
+</div>
+<div id="map" class="chip"><canvas width="460" height="260" aria-label="Minimap"></canvas></div>
+
+<div id="stick" class="touch-only" aria-hidden="true"><i></i></div>
+<button id="jump" class="touch-only" type="button">Jump</button>
+
+<div id="start">
+  <div class="card">
+    <h1>Walk around the <em>CSA</em> and the Academic block</h1>
+    <p>The Council of Student Activities block and the Academic block at KNIT Sultanpur, with the gap between them, the paved road and the Bank of Baroda end. Modelled in Blender from Street View photos.</p>
+    <div class="keys desk-only">
+      <kbd>W A S D</kbd><span>walk</span>
+      <kbd>Mouse</kbd><span>look around</span>
+      <kbd>Shift</kbd><span>run</span>
+      <kbd>Space</kbd><span>jump</span>
+      <kbd>1 to 9</kbd><span>jump to a place</span>
+      <kbd>N</kbd><span>day / night</span>
+    </div>
+    <div class="keys touch-only">
+      <span>Left pad</span><span>walk</span>
+      <span>Drag right side</span><span>look around</span>
+    </div>
+    <div id="bar"><i></i></div>
+    <button class="go" id="go" type="button" disabled>Loading model…</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function () {
+  // ---------- renderer / scene ----------
+  const view = document.getElementById('view');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  view.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 1500);
+  camera.rotation.order = 'YXZ';
+
+  // sky dome
+  const skyU = { top: { value: new THREE.Color(0x4f86c6) }, bottom: { value: new THREE.Color(0xdfe7ea) } };
+  const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(900, 32, 16),
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
+      vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying vec3 vW; void main(){ float h = normalize(vW - cameraPosition).y; gl_FragColor = vec4(mix(bottom, top, pow(clamp(h,0.0,1.0),0.55)), 1.0); }'
+    })
+  );
+  sky.renderOrder = -1; scene.add(sky);
+  scene.fog = new THREE.Fog(0xdfe7ea, 140, 700);
+
+  const hemi = new THREE.HemisphereLight(0xe6f0ff, 0x7a6a50, 0.85); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff2de, 2.3);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 300 });
+  sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.04;
+  scene.add(sun); scene.add(sun.target);
+  const SUN_DIR = new THREE.Vector3(-0.45, 0.9, 0.75).normalize();   // from the front-left, high (Blender sun)
+  const torch = new THREE.PointLight(0xffd9a0, 0, 22, 1.6); scene.add(torch);
+
+  // ---------- procedural ground textures (the Blender ones are node-based) ----------
+  function paverTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+    g.fillStyle = '#8a8274'; g.fillRect(0, 0, 512, 512);
+    const bw = 64, bh = 32;
+    for (let row = 0; row < 16; row++) {
+      for (let col = -1; col < 9; col++) {
+        const x = col * bw + (row % 2 ? bw / 2 : 0), y = row * bh;
+        const t = Math.random();
+        g.fillStyle = t < 0.5 ? '#b8ad99' : t < 0.85 ? '#ada28f' : '#a49a88';
+        g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3);
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 8;
+    return tex;
+  }
+  function dirtTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+    g.fillStyle = '#8f7a5c'; g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 900; i++) {
+      const x = Math.random() * 512, y = Math.random() * 512, r = 4 + Math.random() * 26;
+      g.fillStyle = Math.random() < 0.55 ? 'rgba(109,122,66,0.35)' : 'rgba(150,128,96,0.3)';
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 8;
+    return tex;
+  }
+  function planarUV(mesh, tile) {
+    const pos = mesh.geometry.attributes.position, uv = new Float32Array(pos.count * 2);
+    mesh.updateWorldMatrix(true, false);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+      uv[i * 2] = v.x / tile; uv[i * 2 + 1] = v.z / tile;
+    }
+    mesh.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  }
+
+  // ---------- colliders (authored in Blender coords: x, y = depth, z = up) ----------
+  // three.js: X = bx, Y = bz, Z = -by
+  const COL = [];
+  function C(x0, x1, y0, y1, bot, top) { COL.push({ minX: x0, maxX: x1, minZ: -y1, maxZ: -y0, bot, top }); }
+  const ROOF = 18.65, PARA = 19.6;
+  // CSA block (x -27..27) and Academic block (x -71..-35)
+  [[-27, 27], [-71, -35]].forEach(([a, b]) => {
+    C(a, b, -4, 8, 0, 4.6);                 // ground floor (behind the verandah)
+    C(a, b, -7, 8, 4.6, ROOF);              // upper floors; their top is the roof you can walk on
+    C(a - 0.1, b + 0.1, -7.25, -6.85, ROOF, PARA);   // parapets
+    C(a - 0.1, b + 0.1, 7.7, 8.1, ROOF, PARA);
+    C(a - 0.1, a + 0.3, -7.25, 8.1, ROOF, PARA);
+    C(b - 0.3, b + 0.1, -7.25, 8.1, ROOF, PARA);
+    C(a - 0.4, b + 0.4, -9.4, -4, 0, 0.3);  // verandah plinth (a step)
+  });
+  C(-35, -27, -1.5, 7.5, 0, 19.25);         // stair core in the gap
+  C(-35, -27, -4.5, -1.5, 0, 0.3);
+  C(-21, -15, 0.5, 5.5, ROOF, ROOF + 3.45);  // stair rooms on the roofs
+  C(-61, -55, 0.5, 5.5, ROOF, ROOF + 3.45);
+  for (let j = 0; j <= 12; j++) { const x = -27 + 4.5 * j; C(x - 0.42, x + 0.42, -8.02, -7.18, 0, 4.6); }   // CSA columns
+  for (let j = 0; j <= 8; j++)  { const x = -71 + 4.5 * j; C(x - 0.32, x + 0.32, -7.92, -7.28, 0, 4.6); }   // Academic columns
+  C(-27.3, -3.85, -9.3, -9.2, 0, 1.25); C(3.85, 27.3, -9.3, -9.2, 0, 1.25);    // CSA steel railing
+  C(-3.85, 3.85, -9.3, -9.2, 0, 1.75);                                          // main gate (closed in the model)
+  [[-71.4, -60.95], [-58.55, -47.45], [-45.05, -34.6]].forEach(([a, b]) => C(a, b, -9.45, -9.05, 0, 1.35));  // Academic low wall
+  for (let x = -71; x <= -35; x += 2.25) C(x - 0.08, x + 0.08, -9.99, -9.83, 0, 3.4);                      // awning posts
+  C(-72.8, -72.6, -3.3, -3.1, 0, 3.2); C(-72.8, -72.6, 4.1, 4.3, 0, 3.2);                                   // bank awning posts
+  C(-25, 25, -30, -27, 0, 0.6);             // raised platform across the road
+  C(-93, 75, -24.4, -24.0, 0, 0.38);        // far kerb (stops before the crossroads)
+
+  // KNIT Alumni Park: kerb + orange-post fence all round (gap at the gate), flag platform, stage, gate pillars
+  const PARK = { poly: [[-97.5,-43],[-100.5,-58],[-104,-75],[-110.5,-107.5],[-100,-109],[-62,-111.5],[-62.7,-74.2],[-73.8,-62.5],[-83.5,-50.5],[-90,-39.8],[-95.5,-35]],
+                 flag: [-88.5, -84.0], gate: [-102.9, -69.8], gateW: 3.6 };
+  (function () {
+    const P = PARK.poly, n = P.length, [gx, gy] = PARK.gate;
+    for (let i = 0; i < n; i++) {
+      const [px, py] = P[i], [qx, qy] = P[(i + 1) % n];
+      const L = Math.hypot(qx - px, qy - py), tx = (qx - px) / L, ty = (qy - py) / L;
+      const ix = -ty, iy = tx;                                  // inward (polygon is counter-clockwise)
+      for (let k = 0.5; k < L; k += 1.0) {
+        const ex = px + tx * k, ey = py + ty * k;
+        if (Math.hypot(ex - gx, ey - gy) < PARK.gateW / 2 + 0.2) continue;
+        const cx = ex + ix * 0.35, cy = ey + iy * 0.35;
+        C(cx - 0.5, cx + 0.5, cy - 0.5, cy + 0.5, 0, 1.3);
+      }
+    }
+    const [fx, fy] = PARK.flag;
+    C(fx - 2.8, fx + 2.8, fy - 2.8, fy + 2.8, 0, 0.35);         // flag platform, lower tier
+    C(fx - 1.7, fx + 1.7, fy - 1.7, fy + 1.7, 0, 0.7);          // upper tier
+    C(fx - 0.15, fx + 0.15, fy - 0.15, fy + 0.15, 0, 19);      // flagpole
+    C(-85.1, -79.9, -69.1, -63.9, 0, 0.6);                      // white stage platform
+    [[-102.46, -67.65], [-103.34, -71.95]].forEach(([x, y]) => C(x - 0.45, x + 0.45, y - 0.45, y + 0.45, 0, 2.2));   // gate pillars
+    C(-102.71, -101.31, -66.19, -64.79, 0, 1.5);                // sign box
+    [[-101.44, -61.22], [-102.37, -65.72]].forEach(([x, y]) => C(x - 0.1, x + 0.1, y - 0.1, y + 0.1, 0, 3.8));       // board posts
+  })();
+
+  // Administrative Block: rotated 6.7 deg about its centre, so its colliders are oriented boxes in its local frame
+  const ADMIN = { cx: -19.3, cy: -85.5, ang: 6.7 * Math.PI / 180 };
+  const OBB = [];
+  function OB(x0, x1, y0, y1, bot, top) {
+    const c = Math.cos(ADMIN.ang), s = Math.sin(ADMIN.ang), lx = (x0 + x1) / 2, ly = (y0 + y1) / 2;
+    OBB.push({ cx: ADMIN.cx + c * lx - s * ly, cy: ADMIN.cy + s * lx + c * ly, hx: (x1 - x0) / 2, hy: (y1 - y0) / 2, c, s, bot, top });
+  }
+  OB(-26.7, 26.7, -13.1, -4.5, 0, 12.2);      // front wing (with pilasters)
+  OB(-26.7, 26.7, 5.0, 12.8, 0, 12.2);        // back wing
+  OB(-26.7, -19.4, -4.5, 5.0, 0, 12.2);       // west wing
+  OB(19.4, 26.7, -4.5, 5.0, 0, 12.2);         // east wing
+  OB(9.2, 17.2, -17.3, -12.5, 0, 0.45);       // porch floor (a step)
+  [-3.6, -1.4, 1.4, 3.6].forEach(dx => OB(13.2 + dx - 0.25, 13.2 + dx + 0.25, -17.25, -16.75, 0, 3.8));   // porch columns
+  [[-33.5, -11.5], [-33.5, -16.0], [-27.5, -11.5], [-27.5, -16.0]].forEach(([x, y]) => OB(x - 0.1, x + 0.1, y - 0.1, y + 0.1, 0, 2.8)); // awning posts
+  function toLocal(b, bx, by) { const dx = bx - b.cx, dy = by - b.cy; return [b.c * dx + b.s * dy, -b.s * dx + b.c * dy]; }
+
+  const R = 0.35, EYE = 1.65, BODY = 1.75, STEP = 0.7;
+  function groundAt(x, z, feet) {
+    let g = 0;
+    for (const b of COL) {
+      if (x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ && b.top <= feet + STEP + 0.01 && b.top > g) g = b.top;
+    }
+    for (const b of OBB) {
+      if (b.top > feet + STEP + 0.01 || b.top <= g) continue;
+      const [lx, ly] = toLocal(b, x, -z);
+      if (Math.abs(lx) <= b.hx && Math.abs(ly) <= b.hy) g = b.top;
+    }
+    return g;
+  }
+  function resolveOBB(p, feet) {
+    for (const b of OBB) {
+      if (b.bot >= feet + BODY || b.top <= feet + STEP) continue;
+      const [lx, ly] = toLocal(b, p.x, -p.z);
+      const qx = Math.max(-b.hx, Math.min(lx, b.hx)), qy = Math.max(-b.hy, Math.min(ly, b.hy));
+      let dx = lx - qx, dy = ly - qy, mx_ = 0, my_ = 0; const d2 = dx * dx + dy * dy;
+      if (d2 >= R * R) continue;
+      if (d2 > 1e-8) { const d = Math.sqrt(d2), k = (R - d) / d; mx_ = dx * k; my_ = dy * k; }
+      else {
+        const pen = [lx + b.hx + R, b.hx - lx + R, ly + b.hy + R, b.hy - ly + R];
+        const m = Math.min(...pen), i = pen.indexOf(m);
+        if (i === 0) mx_ = -m; else if (i === 1) mx_ = m; else if (i === 2) my_ = -m; else my_ = m;
+      }
+      p.x += b.c * mx_ - b.s * my_; p.z -= b.s * mx_ + b.c * my_;
+    }
+  }
+  function resolve(p, feet) {
+    resolveOBB(p, feet);
+    for (const b of COL) {
+      if (b.bot >= feet + BODY || b.top <= feet + STEP) continue;
+      const cx = Math.max(b.minX, Math.min(p.x, b.maxX)), cz = Math.max(b.minZ, Math.min(p.z, b.maxZ));
+      let dx = p.x - cx, dz = p.z - cz; const d2 = dx * dx + dz * dz;
+      if (d2 >= R * R) continue;
+      if (d2 > 1e-8) { const d = Math.sqrt(d2), k = (R - d) / d; p.x += dx * k; p.z += dz * k; }
+      else {
+        const pen = [p.x - b.minX + R, b.maxX - p.x + R, p.z - b.minZ + R, b.maxZ - p.z + R];
+        const m = Math.min(...pen), i = pen.indexOf(m);
+        if (i === 0) p.x -= m; else if (i === 1) p.x += m; else if (i === 2) p.z -= m; else p.z += m;
+      }
+    }
+    p.x = Math.max(-240, Math.min(125, p.x)); p.z = Math.max(-205, Math.min(185, p.z));
+  }
+
+  // ---------- places ----------
+  const PLACES = {
+    road:      { b: [-90, -15.5, 0],     look: [-20, -3, 7],   name: 'Main road, Bank of Baroda corner' },
+    gate:      { b: [0, -16, 0],         look: [0, 0, 7],      name: 'CSA main gate' },
+    colonnade: { b: [22, -6.2, 0.3],     look: [-20, -6.2, 2], name: 'Under the CSA colonnade' },
+    gap:       { b: [-31, -14, 0],       look: [-31, 0, 12],   name: 'The gap between the two blocks' },
+    bank:      { b: [-86, 1, 0],         look: [-71, 1, 4],    name: 'Bank of Baroda, Academic block end' },
+    roof:      { b: [6, -3, ROOF],       look: [-40, -25, 5],  name: 'CSA rooftop' },
+    cross:     { b: [-106, -27, 0],      look: [-30, -2, 8],   name: 'KNIT Rd crossroads' },
+    park:      { b: [-112.5, -63, 0],    look: [-88.5, -84, 4], name: 'KNIT Alumni Park gate' },
+    admin:     { b: [-2.7, -113.8, 0],   look: [-4.7, -96.4, 5], name: 'Administrative Block' }
+  };
+  const player = { p: new THREE.Vector3(), feet: 0, vy: 0, yaw: 0, pitch: 0, grounded: true };
+  function goPlace(key) {
+    const s = PLACES[key];
+    player.p.set(s.b[0], 0, -s.b[1]); player.feet = s.b[2]; player.vy = 0;
+    const tx = s.look[0], tz = -s.look[1], ty = s.look[2];
+    player.yaw = Math.atan2(-(tx - player.p.x), -(tz - player.p.z));
+    const horiz = Math.hypot(tx - player.p.x, tz - player.p.z);
+    player.pitch = Math.atan2(ty - (player.feet + EYE), horiz) * 0.6;
+    hereEl.textContent = s.name;
+  }
+
+  // ---------- input ----------
+  const keys = {};
+  const hereEl = document.getElementById('here');
+  const startEl = document.getElementById('start'), goBtn = document.getElementById('go');
+  let started = false, locked = false;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+
+  addEventListener('keydown', e => {
+    if (!started) return;
+    keys[e.code] = true;
+    if (e.code === 'Space') { e.preventDefault(); jump(); }
+    if (e.code === 'KeyN') toggleNight();
+    if (e.code === 'KeyM') toggleMap();
+    const idx = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'].indexOf(e.code);
+    if (idx >= 0) goPlace(Object.keys(PLACES)[idx]);
+  });
+  addEventListener('keyup', e => { keys[e.code] = false; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  function jump() { if (player.grounded) { player.vy = 6.2; player.grounded = false; } }
+  function look(dx, dy, s) {
+    player.yaw -= dx * s; player.pitch -= dy * s;
+    player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch));
+  }
+  const canvas = renderer.domElement;
+  function requestLock() {
+    if (coarse || !canvas.requestPointerLock) return;
+    try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {}
+  }
+  document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === canvas; });
+  document.addEventListener('mousemove', e => { if (locked) look(e.movementX, e.movementY, 0.0022); });
+  // drag-to-look fallback (when pointer lock is unavailable), and touch look on the right side
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => {
+    if (!started) return;
+    if (e.pointerType === 'mouse') { if (!locked) { requestLock(); drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; } return; }
+    if (e.clientX > innerWidth * 0.4 && !drag) { drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); }
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag || drag.id !== e.pointerId || locked) return;
+    look(e.clientX - drag.x, e.clientY - drag.y, e.pointerType === 'mouse' ? 0.004 : 0.006);
+    drag.x = e.clientX; drag.y = e.clientY;
+  });
+  const endDrag = e => { if (drag && drag.id === e.pointerId) drag = null; };
+  canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+
+  // touch stick
+  const stick = document.getElementById('stick'), knob = stick.querySelector('i');
+  const joy = { x: 0, y: 0, id: null };
+  function stickMove(e) {
+    const r = stick.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = (e.clientX - cx) / (r.width / 2), dy = (e.clientY - cy) / (r.height / 2);
+    const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
+    joy.x = dx; joy.y = -dy;
+    knob.style.transform = `translate(${dx * 36}px, ${dy * 36}px)`;
+  }
+  stick.addEventListener('pointerdown', e => { joy.id = e.pointerId; stick.setPointerCapture(e.pointerId); stickMove(e); });
+  stick.addEventListener('pointermove', e => { if (e.pointerId === joy.id) stickMove(e); });
+  const stickEnd = e => { if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; } };
+  stick.addEventListener('pointerup', stickEnd); stick.addEventListener('pointercancel', stickEnd);
+  document.getElementById('jump').addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
+
+  document.querySelectorAll('[data-place]').forEach(b => b.addEventListener('click', () => { goPlace(b.dataset.place); b.blur(); }));
+
+  // ---------- night / map ----------
+  let night = false, nightMats = [];
+  const btnNight = document.getElementById('btn-night'), btnMap = document.getElementById('btn-map');
+  function toggleNight() {
+    night = !night; btnNight.setAttribute('aria-pressed', String(night));
+    skyU.top.value.set(night ? 0x060b18 : 0x4f86c6); skyU.bottom.value.set(night ? 0x1b2236 : 0xdfe7ea);
+    scene.fog.color.set(night ? 0x1b2236 : 0xdfe7ea);
+    hemi.intensity = night ? 0.12 : 0.85; sun.intensity = night ? 0.25 : 2.3;
+    sun.color.set(night ? 0x9fb4e8 : 0xfff2de);
+    torch.intensity = night ? 1.4 : 0;
+    nightMats.forEach(([m, col, k]) => { m.emissive.set(night ? col : 0x000000); m.emissiveIntensity = night ? k : 1; });
+  }
+  btnNight.addEventListener('click', () => { toggleNight(); btnNight.blur(); });
+  const mapEl = document.getElementById('map');
+  function toggleMap() { mapEl.hidden = !mapEl.hidden; btnMap.setAttribute('aria-pressed', String(!mapEl.hidden)); }
+  btnMap.addEventListener('click', () => { toggleMap(); btnMap.blur(); });
+
+  // ---------- minimap: north-up, centred on the player (Blender plan coords) ----------
+  // road centrelines traced from the Google Maps screenshot, in metres
+  const ROADS = {"KNIT_Rd_East":{"w":9.0,"pts":[[-98.1,-18.1],[-89.7,-18.7],[-77.6,-19.4],[-64.9,-20.1],[-52.4,-20.5],[-39.2,-20.8],[-26.1,-20.9],[-12.7,-20.7],[0.7,-20.2],[12.5,-19.5],[22.1,-18.5],[30.1,-17.3],[37.2,-15.4],[43.4,-12.9],[48.6,-9.7],[53.6,-6.1],[58.3,-2.2],[62.7,2.2],[67.5,7.1],[72.9,12.9],[78.6,19.2],[84.7,25.8],[92.1,33.7],[99.9,41.9],[105.4,47.6]]},"KNIT_Rd_West":{"w":8.0,"pts":[[-98.1,-18.1],[-107.5,-16.1],[-121.2,-13.1],[-135.9,-9.8],[-151.7,-6.0],[-168.7,-1.7],[-183.8,2.0],[-196.8,5.2],[-208.1,8.0],[-215.8,9.9]]},"Main_Rd_North":{"w":8.0,"pts":[[-98.1,-18.1],[-96.3,-12.0],[-93.7,-3.4],[-91.2,5.2],[-89.3,12.0],[-87.5,18.6],[-85.2,27.2],[-82.1,39.5],[-78.5,53.7],[-75.1,66.4],[-72.1,75.8],[-69.3,83.6],[-66.4,91.4],[-63.5,99.5],[-60.7,107.4],[-57.6,115.7],[-54.3,124.7],[-50.8,134.1],[-47.3,143.3],[-43.7,151.9],[-40.1,160.3],[-36.7,168.6],[-33.3,177.6],[-30.1,186.6],[-27.9,192.9]]},"Main_Rd_South":{"w":8.0,"pts":[[-98.1,-18.1],[-99.0,-23.6],[-100.2,-31.3],[-101.5,-38.7],[-102.7,-44.7],[-103.9,-50.4],[-105.2,-56.6],[-106.9,-63.7],[-108.7,-71.3],[-110.4,-78.5],[-111.7,-84.5],[-112.9,-90.0],[-114.1,-96.4],[-115.6,-104.4],[-117.2,-113.3],[-118.8,-122.1],[-120.5,-130.8],[-122.1,-139.5],[-123.6,-147.9],[-124.8,-156.8],[-125.9,-165.5],[-126.6,-171.5]]},"Admin_Branch":{"w":6.5,"pts":[[-98.1,-18.1],[-95.0,-23.1],[-90.5,-30.1],[-86.2,-36.9],[-82.9,-42.4],[-79.7,-47.7],[-75.8,-53.1],[-70.0,-59.7],[-63.5,-66.5],[-58.9,-71.3]]},"KNIT_Rd_Top":{"w":7.0,"pts":[[-60.0,109.6],[-69.2,111.4],[-82.5,113.9],[-96.5,117.0],[-110.6,120.4],[-125.6,124.3],[-140.5,128.5],[-156.3,133.3],[-172.2,138.5],[-184.8,142.6],[-192.0,144.8],[-196.0,146.0],[-200.9,147.3],[-209.2,149.7],[-218.4,152.3],[-225.0,154.2]]},"Top_Left_Link":{"w":6.0,"pts":[[-184.8,142.6],[-186.9,139.1],[-189.9,134.0],[-192.9,128.9],[-195.9,123.6],[-198.8,118.2],[-200.9,114.4]]},"Hostel_Loop":{"w":6.0,"pts":[[-81.5,61.7],[-75.6,61.5],[-67.1,61.1],[-58.9,60.5],[-51.4,59.9],[-44.2,59.1],[-38.4,57.9],[-34.5,56.2],[-31.9,54.1],[-30.7,51.8],[-30.8,48.9],[-32.3,45.8],[-35.6,43.5],[-41.5,42.6],[-49.3,42.5],[-56.8,42.9],[-64.1,44.1],[-71.0,45.7],[-75.9,46.9]]},"Admin_Rd":{"w":6.5,"pts":[[-116.1,-112.1],[-111.3,-112.7],[-104.3,-113.6],[-96.5,-114.5],[-88.0,-115.1],[-78.6,-115.6],[-69.1,-116.3],[-59.9,-117.5],[-50.7,-119.0],[-41.6,-119.6],[-32.3,-119.1],[-23.1,-117.9],[-14.8,-116.5],[-7.3,-114.8],[-0.6,-112.9],[4.0,-111.6]]}};
+  const mc = mapEl.querySelector('canvas'), mg = mc.getContext('2d');
+  const MPX = 2.4;   // canvas px per metre (about 190 m across)
+  let camBX = 0, camBY = 0;
+  const mx = x => mc.width / 2 + (x - camBX) * MPX;
+  const my = y => mc.height / 2 - (y - camBY) * MPX;
+  function rect(x0, x1, y0, y1, fill) { mg.fillStyle = fill; mg.fillRect(mx(x0), my(y1), mx(x1) - mx(x0), my(y0) - my(y1)); }
+  function drawMap() {
+    camBX = player.p.x; camBY = -player.p.z;
+    mg.fillStyle = '#3a352d'; mg.fillRect(0, 0, mc.width, mc.height);
+    rect(-100, 75, -24, -9.4, '#8d8576');
+    rect(-86, -71.4, -9.4, 14, '#8d8576');
+    mg.fillStyle = '#4f7f36'; mg.beginPath();
+    PARK.poly.forEach(([x, y], i) => i ? mg.lineTo(mx(x), my(y)) : mg.moveTo(mx(x), my(y))); mg.closePath(); mg.fill();
+    mg.fillStyle = '#f6efe8'; mg.beginPath(); mg.arc(mx(PARK.flag[0]), my(PARK.flag[1]), 3.2 * MPX, 0, Math.PI * 2); mg.fill();
+    mg.lineCap = 'round'; mg.lineJoin = 'round';
+    for (const k in ROADS) {
+      const r = ROADS[k];
+      mg.strokeStyle = k === 'KNIT_Rd_East' ? '#8d8576' : '#6b6e72'; mg.lineWidth = r.w * MPX;
+      mg.beginPath(); r.pts.forEach(([x, y], i) => i ? mg.lineTo(mx(x), my(y)) : mg.moveTo(mx(x), my(y))); mg.stroke();
+    }
+    rect(-27, 27, -7, 8, '#cf8a83'); rect(-71, -35, -7, 8, '#cf8a83'); rect(-35, -27, -1.5, 7.5, '#a8706a');
+    rect(-27.6, 27.6, -9.2, -7.1, '#e0362c');
+    mg.fillStyle = '#f6efe8'; mg.font = '600 17px "Public Sans", sans-serif'; mg.textAlign = 'center';
+    mg.fillText('CSA', mx(0), my(-1) + 6); mg.fillText('Academic', mx(-53), my(-1) + 6);
+    mg.fillStyle = 'rgba(246,239,232,0.7)'; mg.font = '600 13px "Public Sans", sans-serif';
+    mg.fillText('KNIT Rd', mx(-150), my(-2)); mg.fillText('N', mc.width - 14, 20);
+    mg.fillText('Alumni Park', mx(-84), my(-100));
+    // admin block (rotated ring around a courtyard)
+    mg.save(); mg.translate(mx(ADMIN.cx), my(ADMIN.cy)); mg.rotate(-ADMIN.ang);
+    mg.fillStyle = '#e3c39a'; mg.fillRect(-26.4 * MPX, -12.5 * MPX, 52.8 * MPX, 25 * MPX);
+    mg.fillStyle = '#8d8576'; mg.fillRect(-19.4 * MPX, -5 * MPX, 38.8 * MPX, 9.5 * MPX);
+    mg.fillStyle = '#9e1f28'; mg.fillRect(-4.4 * MPX, 12.5 * MPX, 30.8 * MPX, 0.9 * MPX);
+    mg.fillStyle = '#2a2624'; mg.fillText('Admin', 0, -7 * MPX);
+    mg.restore();
+    const fx = -Math.sin(player.yaw), fy = Math.cos(player.yaw);   // forward in plan coords
+    const px = mc.width / 2, py = mc.height / 2, a = Math.atan2(-fy, fx);
+    mg.save(); mg.translate(px, py); mg.rotate(a);
+    mg.fillStyle = '#efdc98'; mg.beginPath(); mg.moveTo(13, 0); mg.lineTo(-8, 8); mg.lineTo(-4, 0); mg.lineTo(-8, -8); mg.closePath(); mg.fill();
+    mg.restore();
+  }
+
+  // ---------- load the Blender model ----------
+  const barEl = document.querySelector('#bar i');
+  const loader = new THREE.GLTFLoader();
+  loader.load('knit-csa.glb', gltf => {
+    const root = gltf.scene;
+    const paver = paverTexture(), dirt = dirtTexture();
+    root.traverse(o => {
+      if (/^Sign_(Welcome|Incubation)/.test(o.name)) o.visible = false;   // their boards were removed in Blender
+      if (!o.isMesh) return;
+      const fullName = o.name + ' ' + (o.parent ? o.parent.name : '');
+      o.castShadow = !/Ground/.test(fullName); o.receiveShadow = true;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach(m => {
+        if (!m) return;
+        if (m.name === 'CSA_Paver_Interlock') { planarUV(o, 2.0); m.map = paver; m.color.set(0xffffff); m.roughness = 0.9; m.needsUpdate = true; }
+        if (m.name === 'CSA_Ground_Dirt_Grass') { planarUV(o, 14.0); m.map = dirt; m.color.set(0xffffff); m.roughness = 1; m.needsUpdate = true; }
+        if (m.name === 'CSA_Glass_Lit' && !nightMats.some(n => n[0] === m)) nightMats.push([m, 0xffd28a, 1.3]);
+        if (m.name === 'CSA_Lamp_Bulb' && !nightMats.some(n => n[0] === m)) nightMats.push([m, 0xffe2a8, 2.5]);
+        if (m.name && m.name.startsWith('CSA_Kiosk')) m.side = THREE.DoubleSide;
+      });
+    });
+    scene.add(root);
+    barEl.style.width = '100%';
+    goBtn.disabled = false; goBtn.textContent = coarse ? 'Tap to start walking' : 'Click to start walking';
+    hereEl.textContent = 'Ready';
+  }, ev => {
+    if (ev.total) barEl.style.width = Math.round(ev.loaded / ev.total * 100) + '%';
+  }, err => {
+    goBtn.textContent = 'The model failed to load. Reload the page to try again.';
+    console.error(err);
+  });
+
+  goBtn.addEventListener('click', () => {
+    started = true; startEl.hidden = true; requestLock();
+    if (!placed) { goPlace('road'); placed = true; }
+  });
+  let placed = false;
+
+  // keep position across live updates of this page
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) {
+    try { hot.snapshot(() => ({ x: player.p.x, z: player.p.z, feet: player.feet, yaw: player.yaw, pitch: player.pitch })); } catch (_) {}
+  }
+  const prev = hot && hot.data;
+  if (prev && typeof prev.x === 'number') {
+    player.p.set(prev.x, 0, prev.z); player.feet = prev.feet; player.yaw = prev.yaw; player.pitch = prev.pitch; placed = true;
+  } else {
+    goPlace('road');
+  }
+
+  // ---------- loop ----------
+  function resize() {
+    const w = view.clientWidth, h = view.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize); resize();
+
+  const clock = new THREE.Clock(); let mapTick = 0;
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    if (started) {
+      let fx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+      let fz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + joy.y;
+      const l = Math.hypot(fx, fz); if (l > 1) { fx /= l; fz /= l; }
+      const run = keys.ShiftLeft || keys.ShiftRight || Math.hypot(joy.x, joy.y) > 0.95;
+      const speed = run ? 9 : 4.5;
+      const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
+      const mvx = (cy * fx - sy * fz) * speed * dt, mvz = (-sy * fx - cy * fz) * speed * dt;
+      const steps = Math.max(1, Math.ceil(Math.hypot(mvx, mvz) / 0.2));
+      for (let i = 0; i < steps; i++) {
+        player.p.x += mvx / steps; player.p.z += mvz / steps;
+        resolve(player.p, player.feet);
+        const g = groundAt(player.p.x, player.p.z, player.feet);
+        if (player.grounded && g > player.feet) player.feet = g;    // walk up a step
+      }
+      player.vy -= 19 * dt; player.feet += player.vy * dt;
+      const g = groundAt(player.p.x, player.p.z, Math.max(player.feet, 0));
+      if (player.feet <= g) { player.feet = g; player.vy = 0; player.grounded = true; }
+      else if (player.grounded && player.feet - g < 0.35 && player.vy <= 0) { player.feet = g; player.vy = 0; }   // stick to stairs going down
+      else player.grounded = false;
+    }
+    camera.position.set(player.p.x, player.feet + EYE, player.p.z);
+    camera.rotation.set(player.pitch, player.yaw, 0);
+    sky.position.copy(camera.position);
+    sun.target.position.set(player.p.x, 0, player.p.z);
+    sun.position.copy(sun.target.position).addScaledVector(SUN_DIR, 120);
+    torch.position.set(player.p.x, player.feet + 2.4, player.p.z);
+    renderer.render(scene, camera);
+    if (!mapEl.hidden && (mapTick++ % 3 === 0)) drawMap();
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+
+</body>
+</html>
